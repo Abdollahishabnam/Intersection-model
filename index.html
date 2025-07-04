@@ -108,16 +108,22 @@ fetch('https://abdollahishabnam.github.io/Intersection-model/intersection_model_
         }
 
         // Link checkboxes to toggle layer visibility
-        for (const key in groups) {
-            document.getElementById(key).addEventListener('change', function(e) {
-                if (e.target.checked) {
-                    groups[e.target.id].addTo(map);
+      document.addEventListener("DOMContentLoaded", () => {
+    const levels = ['Safe', 'Acceptable', 'Somewhat hazardous', 'Hazardous', 'Very Hazardous'];
+    levels.forEach(level => {
+        const checkbox = document.getElementById(level);
+        if (checkbox) {
+            checkbox.addEventListener('change', () => {
+                if (checkbox.checked) {
+                    map.addLayer(groups[level]);
                 } else {
-                    map.removeLayer(groups[e.target.id]);
+                    map.removeLayer(groups[level]);
                 }
             });
         }
     });
+});
+
 
 // Legend
 var legend = L.control({position: 'bottomright'});
