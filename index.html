@@ -1,0 +1,140 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Intersection Hazard Map</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"/>
+    <style>
+        html, body, #map { height: 100%; margin: 0; padding: 0; }
+        .legend, .checkboxes {
+            background: white;
+            padding: 10px;
+            border: 1px solid gray;
+            font-size: 14px;
+            line-height: 1.5em;
+        }
+        .legend i {
+            width: 12px;
+            height: 12px;
+            float: left;
+            margin-right: 6px;
+            opacity: 0.7;
+        }
+        .leaflet-top.leaflet-left { margin-top: 60px; }
+    </style>
+</head>
+<body>
+<div id="map"></div>
+
+<div id="checkbox-container" class="leaflet-top leaflet-left checkboxes" style="position: absolute; top: 10px; left: 10px; z-index: 1000;">
+    <strong>Toggle Hazard Levels:</strong><br>
+    <label><input type="checkbox" id="Safe" checked> Safe</label><br>
+    <label><input type="checkbox" id="Acceptable" checked> Acceptable</label><br>
+    <label><input type="checkbox" id="Somewhat hazardous" checked> Somewhat hazardous</label><br>
+    <label><input type="checkbox" id="Hazardous" checked> Hazardous</label><br>
+    <label><input type="checkbox" id="Very Hazardous" checked> Very Hazardous</label><br>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+<script>
+var map = L.map('map').setView([45.52, -73.6], 13);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+
+var hazardColors = {
+    'Safe': 'blue',
+    'Acceptable': 'lightblue',
+    'Somewhat hazardous': 'orange',
+    'Hazardous': 'red',
+    'Very Hazardous': 'darkred'
+};
+
+var markersByLevel = {
+    'Safe': [],
+    'Acceptable': [],
+    'Somewhat hazardous': [],
+    'Hazardous': [],
+    'Very Hazardous': []
+};
+
+let bounds = [];
+
+fetch('https://abdollahishabnam.github.io/Intersection-model/intersection_model_all_levels.geojson')
+    .then(res => res.json())
+    .then(data => {
+        data.features.forEach(f => {
+            var p = f.properties;
+            var level = p["Hazard lev"];
+            var coords = f.geometry.coordinates;
+
+            if (level && markersByLevel[level]) {
+                var popup = `
+                    <b>Node Number:</b> ${p["NODENUM"]}<br>
+                    <b>Intersection design:</b> ${p["Intersecti"]}<br>
+                    <b>Traffic calming:</b> ${p["Traffic ca"]}<br>
+                    <b>Land use:</b> ${p["Land use"]}<br>
+                    <b>Traffic control:</b> ${p["Traffic co"]}<br>
+                    <b>Visibility:</b> ${p["Visibility"]}<br>
+                    <b>Bike path design:</b> ${p["Bike path"]}<br>
+                    <b>Segment danger level:</b> ${p["Segment da"]}<br>
+                    <b>Hazard level:</b> ${p["Hazard lev"]}
+                `;
+
+                var marker = L.circleMarker([coords[1], coords[0]], {
+                    radius: 5,
+                    fillColor: hazardColors[level],
+                    color: hazardColors[level],
+                    weight: 1,
+                    fillOpacity: 0.8
+                }).bindPopup(popup);
+
+                marker.addTo(map);
+                markersByLevel[level].push(marker);
+                bounds.push([coords[1], coords[0]]);
+            }
+        });
+
+        if (bounds.length > 0) {
+            map.fitBounds(bounds);
+        }
+    });
+
+// Toggle checkbox logic
+document.addEventListener("DOMContentLoaded", () => {
+    const levels = Object.keys(markersByLevel);
+    levels.forEach(level => {
+        const checkbox = document.getElementById(level);
+        if (checkbox) {
+            checkbox.addEventListener("change", () => {
+                markersByLevel[level].forEach(marker => {
+                    if (checkbox.checked) {
+                        marker.addTo(map);
+                    } else {
+                        map.removeLayer(marker);
+                    }
+                });
+            });
+        }
+    });
+});
+
+// Legend
+var legend = L.control({position: 'bottomright'});
+legend.onAdd = function (map) {
+    var div = L.DomUtil.create('div', 'legend');
+    var levels = ['Safe', 'Acceptable', 'Somewhat hazardous', 'Hazardous', 'Very Hazardous'];
+    var colors = ['blue', 'lightblue', 'orange', 'red', 'darkred'];
+    for (var i = 0; i < levels.length; i++) {
+        div.innerHTML += '<i style="background:' + colors[i] + '"></i> ' + levels[i] + '<br>';
+    }
+    return div;
+};
+legend.addTo(map);
+</script>
+</body>
+</html>
