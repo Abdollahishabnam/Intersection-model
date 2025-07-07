@@ -1,0 +1,138 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Interactive Intersection Hazard Map</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    #map { height: 90vh; width: 100%; }
+    .legend, .filters {
+      background: white;
+      padding: 10px;
+      font-size: 14px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      margin: 10px;
+    }
+    .legend {
+      position: absolute;
+      bottom: 20px;
+      left: 10px;
+      z-index: 1000;
+    }
+    .filters {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 1000;
+    }
+    .legend i {
+      width: 18px;
+      height: 18px;
+      float: left;
+      margin-right: 8px;
+      opacity: 0.8;
+    }
+  </style>
+</head>
+<body>
+  <div class="filters">
+    <strong>Filter by Hazard Level:</strong><br>
+    <label><input type="checkbox" value="Safe" checked> Safe</label><br>
+    <label><input type="checkbox" value="Acceptable" checked> Acceptable</label><br>
+    <label><input type="checkbox" value="Somewhat hazardous" checked> Somewhat Hazardous</label><br>
+    <label><input type="checkbox" value="Hazardous" checked> Hazardous</label><br>
+    <label><input type="checkbox" value="Very Hazardous" checked> Very Hazardous</label>
+  </div>
+
+  <div id="map"></div>
+  <div class="legend">
+    <strong>Legend</strong><br>
+    <i style="background: blue"></i> Safe<br>
+    <i style="background: lightblue"></i> Acceptable<br> 
+    <i style="background: orange"></i> Somewhat Hazardous<br>
+    <i style="background: red"></i> Hazardous<br>
+    <i style="background: darkred"></i> Very Hazardous<br>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    var map = L.map('map').setView([45.52, -73.6], 13);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: 'Map data © <a href="https://openstreetmap.org">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    function getColor(level) {
+      switch (level) {
+        case 'Safe': return 'blue';
+        case 'Acceptable': return 'lightblue';
+        case 'Somewhat hazardous': return 'orange';
+        case 'Hazardous': return 'red';
+        case 'Very Hazardous': return 'darkred';
+        default: return 'gray';
+      }
+    }
+
+    function styleFeature(feature) {
+      return {
+        radius: 6,
+        color: getColor(feature.properties["Hazard lev"]),
+        fillColor: getColor(feature.properties["Hazard lev"]),
+        weight: 1,
+        opacity: 1,
+        fillOpacity: 0.8
+      };
+    }
+
+    function onEachFeature(feature, layer) {
+      const p = feature.properties;
+      const popup = `
+        <b>Node Number:</b> ${p["NODENUM"]}<br>
+        <b>Intersection design:</b> ${p["Intersecti"]}<br>
+        <b>Traffic calming:</b> ${p["Traffic ca"]}<br>
+        <b>Land use:</b> ${p["Land use"]}<br>
+        <b>Traffic control:</b> ${p["Traffic co"]}<br>
+        <b>Visibility:</b> ${p["Visibility"]}<br>
+        <b>Bike path design:</b> ${p["Bike path"]}<br>
+        <b>Segment danger level:</b> ${p["Segment da"]}<br>
+        <b>Hazard level:</b> ${p["Hazard lev"]}
+      `;
+      layer.bindPopup(popup);
+    }
+
+    let geojsonLayer;
+    function loadData(levels) {
+      if (geojsonLayer) geojsonLayer.remove();
+      fetch('https://abdollahishabnam.github.io/Intersection-model/intersection_model_all_levels.geojson')
+        .then(res => res.json())
+        .then(data => {
+          const filtered = {
+            ...data,
+            features: data.features.filter(f =>
+              levels.includes(f.properties["Hazard lev"])
+            )
+          };
+          geojsonLayer = L.geoJSON(filtered, {
+            pointToLayer: function (feature, latlng) {
+              return L.circleMarker(latlng, styleFeature(feature));
+            },
+            onEachFeature: onEachFeature
+          }).addTo(map);
+        });
+    }
+
+    const defaultLevels = ['Safe', 'Acceptable', 'Somewhat hazardous', 'Hazardous', 'Very Hazardous'];
+    loadData(defaultLevels);
+
+    document.querySelectorAll('.filters input[type="checkbox"]').forEach(cb => {
+      cb.addEventListener('change', () => {
+        const selected = Array.from(document.querySelectorAll('.filters input[type="checkbox"]:checked')).map(cb => cb.value);
+        loadData(selected);
+      });
+    });
+  </script>
+</body>
+</html>
